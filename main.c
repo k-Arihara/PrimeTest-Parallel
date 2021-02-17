@@ -5,6 +5,15 @@
 #include <omp.h>
 #endif
 
+#define DEBUG
+
+/* printf for debuggin */
+#ifdef DEBUG
+#define debug_printf printf
+#else
+#define debug_printf 1 ? (void) 0 : printf
+#endif
+
 void ShowResult(long testNum, bool b)
 {
   if (b)
@@ -37,19 +46,28 @@ bool MillerRabin(long testNum)
     return false;
   }
 
+  long s = 0;
+  long t = testNum - 1;
+  while ((t & 1) == 0)
+  {
+    t = t >> 1;
+    s++;
+  }
+  debug_printf("s:%ld, t:%ld\n", s, t);
+
   return true;
 }
 
 int main(int argc, char *argv[])
 {
   int myID, rank;
-  long testNum = 3;
+  long testNum = 19;
   bool result;
 
   result = MillerRabin(testNum);
   ShowResult(testNum, result);
 
-  testNum = 6;
+  testNum = 93;
   result = MillerRabin(testNum);
   ShowResult(testNum, result);
 
