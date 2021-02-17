@@ -16,7 +16,15 @@ void ShowResult(long testNum, bool b)
     printf("Test Number:%d is not Prime.\n", testNum);
   }
 }
-
+/******************************************************
+ * Miller-Rabin 
+ * input: Number 'num' to test a prime number
+ * output: True when the number may be a prime number
+ *        ,False when it is not a prime number.
+ *
+ * Reference: https://en.wikipedia.org/wiki/Miller%E2%80%93Rabin_primality_test
+ * 
+ *****************************************************/
 bool MillerRabin(long testNum)
 {
   if (testNum == 2)
