@@ -40,18 +40,25 @@ void ShowResult(mpz_t testNum, bool b)
  *****************************************************/
 bool MillerRabin(mpz_t testNum)
 {
+  bool isPrime;
   mpz_t result;
   mpz_init(result);
 
   /* testNum == 2 */
   if (mpz_cmp_ui(testNum, 2) == 0)
-    return true;
+  {
+    isPrime = true;
+    goto end1;
+  }
 
   /* result = testNum % 2 */
   mpz_mod_ui(result, testNum, 2);
   /*  2 < testNum && result == 0 */
   if (mpz_cmp_ui(testNum, 2) > 0 && mpz_cmp_ui(result, 0) == 0)
-    return false;
+  {
+    isPrime = false;
+    goto end1;
+  }
 
   mpz_t op_s, op_t, op_u;
   mpz_init(op_s);
@@ -95,10 +102,13 @@ bool MillerRabin(mpz_t testNum)
   debug_printf("************************\n\n");
   /* result == 1 */
   if (mpz_cmp_ui(result, 1) == 0)
-    return true;
+  {
+    isPrime = true;
+    goto end2;
+  }
 
   /* while(i < s) */
-  for (unsigned int i = 0; mpz_cmp_ui(op_s, (unsigned long)i) > 0 ; i++)
+  for (unsigned int i = 0; mpz_cmp_ui(op_s, (unsigned long)i) > 0; i++)
   {
     /* result = 2^i */
     mpz_ui_pow_ui(result, 2, (unsigned long)i);
@@ -108,10 +118,21 @@ bool MillerRabin(mpz_t testNum)
     mpz_powm(result, op_a, result, testNum);
     /* a^(2^i * t) % testNum == testNum - 1 */
     if (mpz_cmp(result, op_u) == 0)
-      return true;
+    {
+      isPrime = true;
+      goto end2;
+    }
   }
+  isPrime = false;
 
-  return false;
+end2:
+  mpz_clear(op_a);
+  mpz_clear(op_s);
+  mpz_clear(op_t);
+  mpz_clear(op_u);
+end1:
+  mpz_clear(result);
+  return isPrime;
 }
 
 int main(int argc, char *argv[])
