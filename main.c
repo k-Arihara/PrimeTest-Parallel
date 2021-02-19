@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
+#include <sys/time.h>
 #include <math.h>
 #include <gmp.h>
 #include <stdbool.h>
@@ -29,6 +29,7 @@ void ShowResult(mpz_t testNum, bool b)
     gmp_printf("Test Number:%Zd is not Prime.\n", testNum);
   }
 }
+
 /******************************************************
  * Miller-Rabin 
  * input: Number 'testNum' to test a prime number
@@ -86,13 +87,20 @@ bool MillerRabin(mpz_t testNum)
   }
   debug_gmp_printf("s:%Zd, t:%Zd\n", op_s, op_t);
 
+  gmp_randstate_t rstate;
+  struct timeval tv;
+
+  gettimeofday(&tv, NULL);
+
+  gmp_randinit_default(rstate);
+  gmp_randseed_ui(rstate, tv.tv_usec);
+
   mpz_t op_a;
   mpz_init(op_a);
-  // srand((unsigned)time(NULL));
-  // unsigned long a = (unsigned long)rand() % (testNum - 1) + 1;
 
-  /* op_a = 3 */
-  mpz_set_ui(op_a, 3);
+
+  /* op_a = random(0, testNum-1) */
+  mpz_urandomm(op_a, rstate, op_u);
 
   /* Felmat Test */
   /* result = a^t % testNum */
@@ -139,7 +147,7 @@ int main(int argc, char *argv[])
 {
   int myID, rank;
   mpz_t testNum;
-  bool result;
+  bool isPrime;
 
   mpz_init(testNum);
 
@@ -148,8 +156,8 @@ int main(int argc, char *argv[])
 
   debug_gmp_printf("Input Number : %Zd\n", testNum);
 
-  result = MillerRabin(testNum);
-  ShowResult(testNum, result);
+  isPrime = MillerRabin(testNum);
+  ShowResult(testNum, isPrime);
 
   mpz_clear(testNum);
 
