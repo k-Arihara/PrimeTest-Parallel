@@ -8,7 +8,7 @@
 #include <omp.h>
 #endif
 
-#define DEBUG
+// #define DEBUG
 
 /* printf for debuggin */
 #ifdef DEBUG
@@ -16,17 +16,20 @@
 #define debug_gmp_printf gmp_printf
 #else
 #define debug_printf 1 ? (void)0 : printf
+#define debug_gmp_printf 1 ? (void)0 : gmp_printf
 #endif
+
+#define TEST_NUM 1024
 
 void ShowResult(mpz_t testNum, bool b)
 {
   if (b)
   {
-    gmp_printf("Test Number:%Zd is Prime.\n", testNum);
+    gmp_printf("Test Number:%Zd may be a Prime Number.\n", testNum);
   }
   else
   {
-    gmp_printf("Test Number:%Zd is not Prime.\n", testNum);
+    gmp_printf("Test Number:%Zd is not a Prime Number.\n", testNum);
   }
 }
 
@@ -49,7 +52,7 @@ bool MillerRabin(mpz_t testNum)
   if (mpz_cmp_ui(testNum, 2) == 0)
   {
     isPrime = true;
-    goto end1;
+    goto end_of_func;
   }
 
   /* result = testNum % 2 */
@@ -58,7 +61,7 @@ bool MillerRabin(mpz_t testNum)
   if (mpz_cmp_ui(testNum, 2) > 0 && mpz_cmp_ui(result, 0) == 0)
   {
     isPrime = false;
-    goto end1;
+    goto end_of_func;
   }
 
   mpz_t op_s, op_t, op_u;
@@ -98,47 +101,45 @@ bool MillerRabin(mpz_t testNum)
   mpz_t op_a;
   mpz_init(op_a);
 
-
-  /* op_a = random(0, testNum-1) */
-  mpz_urandomm(op_a, rstate, op_u);
-
-  /* Felmat Test */
-  /* result = a^t % testNum */
-  mpz_powm(result, op_a, op_t, testNum);
-  debug_printf("\n************************\n");
-  debug_gmp_printf("Felmat Test : a^t %% testnum == 1\na:%Zd\nresult:%Zd\n", op_a, result);
-  debug_printf("************************\n\n");
-  /* result == 1 */
-  if (mpz_cmp_ui(result, 1) == 0)
+  isPrime = true;
+  for (int k = 0; k < TEST_NUM; k++)
   {
-    isPrime = true;
-    goto end2;
-  }
+    /* op_a = random(0, testNum-1) */
+    mpz_urandomm(op_a, rstate, op_u);
 
-  /* while(i < s) */
-  for (unsigned int i = 0; mpz_cmp_ui(op_s, (unsigned long)i) > 0; i++)
-  {
-    /* result = 2^i */
-    mpz_ui_pow_ui(result, 2, (unsigned long)i);
-    /* result = result * t */
-    mpz_mul(result, result, op_t);
-    /* result = a^result % testNum */
-    mpz_powm(result, op_a, result, testNum);
-    /* a^(2^i * t) % testNum == testNum - 1 */
-    if (mpz_cmp(result, op_u) == 0)
+    /* Felmat Test */
+    /* result = a^t % testNum */
+    mpz_powm(result, op_a, op_t, testNum);
+    debug_printf("\n************************\n");
+    debug_gmp_printf("Felmat Test : a^t %% testnum == 1\na:%Zd\nresult:%Zd\n", op_a, result);
+    debug_printf("************************\n\n");
+    /* result == 1 */
+    if (mpz_cmp_ui(result, 1) == 0)
+      goto end_of_loop;
+
+    /* while(i < s) */
+    for (unsigned int i = 0; mpz_cmp_ui(op_s, (unsigned long)i) > 0; i++)
     {
-      isPrime = true;
-      goto end2;
+      /* result = 2^i */
+      mpz_ui_pow_ui(result, 2, (unsigned long)i);
+      /* result = result * t */
+      mpz_mul(result, result, op_t);
+      /* result = a^result % testNum */
+      mpz_powm(result, op_a, result, testNum);
+      /* a^(2^i * t) % testNum == testNum - 1 */
+      if (mpz_cmp(result, op_u) == 0)
+        goto end_of_loop;
     }
+    isPrime = false;
+    break;
+  end_of_loop:
   }
-  isPrime = false;
 
-end2:
   mpz_clear(op_a);
   mpz_clear(op_s);
   mpz_clear(op_t);
   mpz_clear(op_u);
-end1:
+end_of_func:
   mpz_clear(result);
   return isPrime;
 }
@@ -146,6 +147,7 @@ end1:
 int main(int argc, char *argv[])
 {
   int myID, rank;
+  double t;
   mpz_t testNum;
   bool isPrime;
 
@@ -156,8 +158,12 @@ int main(int argc, char *argv[])
 
   debug_gmp_printf("Input Number : %Zd\n", testNum);
 
+  t = omp_get_wtime();
   isPrime = MillerRabin(testNum);
+  t = omp_get_wtime() - t;
   ShowResult(testNum, isPrime);
+
+  printf("%f\n", t);
 
   mpz_clear(testNum);
 
