@@ -40,11 +40,19 @@ void ShowResult(mpz_t testNum, bool b)
  * Reference: https://en.wikipedia.org/wiki/Miller%E2%80%93Rabin_primality_test
  * 
  *****************************************************/
-bool MillerRabin(mpz_t testNum)
+bool MillerTest(mpz_t testNum)
 {
   bool isPrime;
   mpz_t result;
   mpz_init(result);
+
+  /* testNum < 2 that return false. */
+  if (mpz_cmp_ui(testNum, 2) < 0)
+  {
+    gmp_printf("%Zd is incorrect input.\n", testNum);
+    isPrime = false;
+    goto end_of_func;
+  }
 
   /* testNum == 2 */
   if (mpz_cmp_ui(testNum, 2) == 0)
@@ -90,24 +98,11 @@ bool MillerRabin(mpz_t testNum)
 
   mpz_t op_a;
   mpz_init(op_a);
-
-  /* Randomize */
-  // gmp_randstate_t rstate;
-  // struct timeval tv;
-  // gettimeofday(&tv, NULL);
-  // gmp_randinit_default(rstate);
-  // gmp_randseed_ui(rstate, tv.tv_usec);
-
   mpz_set_ui(op_a, 1);
-
-  // #pragma omp parallel for
-  /* Randomize */
-  /* op_a = random(0, testNum-1) */
-  // mpz_urandomm(op_a, rstate, op_u);
 
   bool isLoop = true;
   isPrime = true;
-#pragma omp parallel
+#pragma omp parallel shared(isLoop, isPrime, op_a) firstprivate(testNum)
   {
     mpz_t op_private_a, op_private_s, op_private_t, op_private_u, private_result;
     mpz_init(op_private_a);
@@ -128,9 +123,10 @@ bool MillerRabin(mpz_t testNum)
       debug_gmp_printf("%Zd\n", op_private_s);
       debug_gmp_printf("%Zd\n", op_private_t);
       debug_gmp_printf("%Zd\n", op_private_u);
+      debug_gmp_printf("\n");
     }
 
-    if (mpz_cmp(op_private_a, testNum) > 0)
+    if (mpz_cmp(op_private_a, op_private_u) > 0)
       goto end_of_loop;
 
     while (isLoop)
@@ -138,12 +134,6 @@ bool MillerRabin(mpz_t testNum)
       /* Felmat Test */
       /* result = a^t % testNum */
       mpz_powm(private_result, op_private_a, op_private_t, testNum);
-#pragma omp critical
-      {
-        debug_printf("\n************************\n");
-        debug_gmp_printf("Felmat Test : a^t %% testnum == 1\na:%Zd\nresult:%Zd\n", op_private_a, private_result);
-        debug_printf("************************\n\n");
-      }
       /* result == 1 */
       if (mpz_cmp_ui(private_result, 1) == 0)
         goto end_of_loop;
@@ -166,15 +156,19 @@ bool MillerRabin(mpz_t testNum)
       break;
 
     end_of_loop:
-#pragma omp critical
+#pragma omp critical(increment_op_a)
       mpz_add_ui(op_a, op_a, 1);
       mpz_set(op_private_a, op_a);
-      if (mpz_cmp(op_private_a, testNum) > 0)
+      if (mpz_cmp(op_private_a, op_private_u) > 0)
         isLoop = false;
       else
         mpz_set(op_private_a, op_a);
     }
     mpz_clear(op_private_a);
+    mpz_clear(op_private_s);
+    mpz_clear(op_private_t);
+    mpz_clear(op_private_u);
+    mpz_clear(private_result);
 #pragma omp barrier
   }
 
@@ -202,7 +196,7 @@ int main(int argc, char *argv[])
   debug_gmp_printf("Input Number : %Zd\n", testNum);
 
   t = omp_get_wtime();
-  isPrime = MillerRabin(testNum);
+  isPrime = MillerTest(testNum);
   t = omp_get_wtime() - t;
   ShowResult(testNum, isPrime);
 
