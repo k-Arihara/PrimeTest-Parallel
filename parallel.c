@@ -32,7 +32,7 @@ void ShowResult(mpz_t testNum, bool b)
 }
 
 /******************************************************
- * Miller-Rabin 
+ * Miller Test 
  * input: Number 'testNum' to test a prime number
  * output: True when the number may be a prime number
  *        ,False when it is not a prime number.
@@ -96,28 +96,33 @@ bool MillerTest(mpz_t testNum)
   }
   debug_gmp_printf("s:%Zd, t:%Zd\n", op_s, op_t);
 
-  mpz_t op_a;
-  mpz_init(op_a);
-  mpz_set_ui(op_a, 1);
-
   bool isLoop = true;
   isPrime = true;
-#pragma omp parallel shared(isLoop, isPrime, op_a) firstprivate(testNum)
+#pragma omp parallel shared(isLoop, isPrime) firstprivate(testNum)
   {
-    mpz_t op_private_a, op_private_s, op_private_t, op_private_u, private_result;
+    mpz_t op_private_a, op_private_s, op_private_t, op_private_u, private_result, private_iter;
     mpz_init(op_private_a);
     mpz_init(op_private_s);
     mpz_init(op_private_t);
     mpz_init(op_private_u);
     mpz_init(private_result);
+    mpz_init(private_iter);
     mpz_set(op_private_s, op_s);
     mpz_set(op_private_t, op_t);
     mpz_set(op_private_u, op_u);
 
+    unsigned int numThread, myID;
+    numThread = omp_get_num_threads();
+    myID = omp_get_thread_num();
+
+    mpz_cdiv_q_ui(private_iter, op_private_u, numThread);
+    mpz_mul_ui(op_private_a, private_iter, myID);
+
+    if(mpz_cmp_ui(op_private_a, 0) == 0)
+      mpz_set_ui(op_private_a, 1);
+
 #pragma omp critical(init_op_a)
     {
-      mpz_add_ui(op_a, op_a, 1);
-      mpz_set(op_private_a, op_a);
       debug_printf("thread num : %d\n", omp_get_thread_num());
       debug_gmp_printf("%Zd\n", op_private_a);
       debug_gmp_printf("%Zd\n", op_private_s);
@@ -156,23 +161,20 @@ bool MillerTest(mpz_t testNum)
       break;
 
     end_of_loop:
-#pragma omp critical(increment_op_a)
-      mpz_add_ui(op_a, op_a, 1);
-      mpz_set(op_private_a, op_a);
-      if (mpz_cmp(op_private_a, op_private_u) > 0)
+      mpz_add_ui(op_private_a, op_private_a, 1);
+      mpz_sub_ui(private_iter, private_iter, 1);
+      if (mpz_cmp_ui(private_iter, 0) == 0)
         isLoop = false;
-      else
-        mpz_set(op_private_a, op_a);
     }
     mpz_clear(op_private_a);
     mpz_clear(op_private_s);
     mpz_clear(op_private_t);
     mpz_clear(op_private_u);
     mpz_clear(private_result);
+    mpz_clear(private_iter);
 #pragma omp barrier
   }
 
-  mpz_clear(op_a);
   mpz_clear(op_s);
   mpz_clear(op_t);
   mpz_clear(op_u);
@@ -183,7 +185,6 @@ end_of_func:
 
 int main(int argc, char *argv[])
 {
-  int myID, rank;
   double t;
   mpz_t testNum;
   bool isPrime;
