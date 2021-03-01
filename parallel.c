@@ -3,10 +3,11 @@
 #include <sys/time.h>
 #include <math.h>
 #include <gmp.h>
+#include <mpfr.h>
 #include <stdbool.h>
 #include <omp.h>
 
-// #define DEBUG
+#define DEBUG
 
 /* printf for debuggin */
 #ifdef DEBUG
@@ -29,6 +30,53 @@ void ShowResult(mpz_t testNum, bool b)
   {
     gmp_printf("Test Number:%Zd is not a Prime Number.\n", testNum);
   }
+}
+
+bool gmp2mpfr(mpz_t op_in, mpfr_t op_out)
+{
+  char str[1024];
+
+  mpz_get_str(str, 10, op_in);
+  printf("str:%s\n", str);
+  mpfr_set_str(op_out, str, 10, MPFR_RNDN);
+  mpfr_ceil(op_out, op_out);
+  mpfr_out_str(stdout, 10, 0, op_out, MPFR_RNDD);
+  putchar('\n');
+
+  return true;
+}
+
+void GetLimitNum(mpz_t op_limit, mpz_t testNum, mpz_t testNum_1)
+{
+  mpfr_t op_result;
+  mpfr_init(op_result);
+
+  if (!gmp2mpfr(testNum, op_result))
+  {
+    mpz_set(op_limit, testNum);
+    return;
+  }
+
+  /* op_result = loge(op_result) */
+  mpfr_log(op_result, op_result, MPFR_RNDN);
+  /* op_result = op_result * op_result */
+  mpfr_sqr(op_result, op_result, MPFR_RNDN);
+  /* op_result = 2 * op_result */
+  mpfr_mul_ui(op_result, op_result, 2, MPFR_RNDN);
+  mpfr_floor(op_result, op_result);
+  mpfr_out_str(stdout, 10, 0, op_result, MPFR_RNDN);
+  putchar('\n');
+
+  mpfr_get_z(op_limit, op_result, MPFR_RNDN);
+
+  debug_gmp_printf("floor( 2(loge(n)^2) ) : %Zd,  testNum - 1 : %Zd\n", op_limit, testNum_1);
+  /* op_limit = min(op_limit, testNum) */
+  if (mpz_cmp(op_limit, testNum_1) > 0)
+  {
+    mpz_set(op_limit, testNum_1);
+  }
+  debug_gmp_printf("limit number : %Zd\n", op_limit);
+  return;
 }
 
 /******************************************************
@@ -70,16 +118,19 @@ bool MillerTest(mpz_t testNum)
     goto end_of_func;
   }
 
-  mpz_t op_s, op_t, op_u;
+  mpz_t op_s, op_t, op_u, op_limit;
   mpz_init(op_s);
   mpz_init(op_t);
   mpz_init(op_u);
+  mpz_init(op_limit);
 
   /* op_s = 0 */
   mpz_set_ui(op_s, 0);
   /* op_t = testNum -1 */
   mpz_sub_ui(op_t, testNum, 1);
   mpz_sub_ui(op_u, testNum, 1);
+
+  GetLimitNum(op_limit, testNum, op_u);
 
   debug_gmp_printf("s:%Zd, t:%Zd\n", op_s, op_t);
 
@@ -100,25 +151,27 @@ bool MillerTest(mpz_t testNum)
   isPrime = true;
 #pragma omp parallel shared(isLoop, isPrime) firstprivate(testNum)
   {
-    mpz_t op_private_a, op_private_s, op_private_t, op_private_u, private_result, private_iter;
+    mpz_t op_private_a, op_private_s, op_private_t, op_private_u, op_private_limit, private_result, private_iter;
     mpz_init(op_private_a);
     mpz_init(op_private_s);
     mpz_init(op_private_t);
     mpz_init(op_private_u);
+    mpz_init(op_private_limit);
     mpz_init(private_result);
     mpz_init(private_iter);
     mpz_set(op_private_s, op_s);
     mpz_set(op_private_t, op_t);
     mpz_set(op_private_u, op_u);
+    mpz_set(op_private_limit, op_limit);
 
     unsigned int numThread, myID;
     numThread = omp_get_num_threads();
     myID = omp_get_thread_num();
 
-    mpz_cdiv_q_ui(private_iter, op_private_u, numThread);
+    mpz_cdiv_q_ui(private_iter, op_private_limit, numThread);
     mpz_mul_ui(op_private_a, private_iter, myID);
 
-    if(mpz_cmp_ui(op_private_a, 0) == 0)
+    if (mpz_cmp_ui(op_private_a, 0) == 0)
       mpz_set_ui(op_private_a, 1);
 
 #pragma omp critical(init_op_a)
@@ -127,11 +180,11 @@ bool MillerTest(mpz_t testNum)
       debug_gmp_printf("%Zd\n", op_private_a);
       debug_gmp_printf("%Zd\n", op_private_s);
       debug_gmp_printf("%Zd\n", op_private_t);
-      debug_gmp_printf("%Zd\n", op_private_u);
+      debug_gmp_printf("%Zd\n", op_private_limit);
       debug_gmp_printf("\n");
     }
 
-    if (mpz_cmp(op_private_a, op_private_u) > 0)
+    if (mpz_cmp(op_private_a, op_private_limit) > 0)
       goto end_of_loop;
 
     while (isLoop)
@@ -156,6 +209,8 @@ bool MillerTest(mpz_t testNum)
         if (mpz_cmp(private_result, op_private_u) == 0)
           goto end_of_loop;
       }
+#pragma omp critical
+      debug_gmp_printf("Finished : %Zd\n", op_private_a);
       isLoop = false;
       isPrime = false;
       break;
@@ -170,6 +225,7 @@ bool MillerTest(mpz_t testNum)
     mpz_clear(op_private_s);
     mpz_clear(op_private_t);
     mpz_clear(op_private_u);
+    mpz_clear(op_private_limit);
     mpz_clear(private_result);
     mpz_clear(private_iter);
 #pragma omp barrier
@@ -177,7 +233,7 @@ bool MillerTest(mpz_t testNum)
 
   mpz_clear(op_s);
   mpz_clear(op_t);
-  mpz_clear(op_u);
+  mpz_clear(op_limit);
 end_of_func:
   mpz_clear(result);
   return isPrime;
