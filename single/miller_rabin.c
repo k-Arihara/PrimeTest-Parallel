@@ -1,4 +1,4 @@
-#include "prime.h"
+#include "single.h"
 #include <time.h>
 #include <sys/time.h>
 

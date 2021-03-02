@@ -1,6 +1,6 @@
 #include <CUnit/CUnit.h>
 #include <CUnit/Basic.h>
-#include "prime.h"
+#include "single.h"
 
 void Test001(void)
 {

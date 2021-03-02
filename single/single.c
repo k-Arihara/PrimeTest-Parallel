@@ -1,4 +1,4 @@
-#include "prime.h"
+#include "single.h"
 #include <omp.h>
 
 #define TEST_NUM 1024

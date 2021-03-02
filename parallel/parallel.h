@@ -2,13 +2,12 @@
 #include <stdbool.h>
 #include <gmp.h>
 #include <mpfr.h>
+#include <omp.h>
 
-#ifndef _PRIME_H_
-#define _PRIME_H_
+#ifndef _PARALLEL_H_
+#define _PARALLEL_H_
 
-bool SingleMillerTest(mpz_t testNum);
-bool MillerRabinTest(mpz_t testNum);
-bool NaivePrimeTest(mpz_t testNum);
+bool ParallelMillerTest(mpz_t testNum);
 
 // #define DEBUG
 

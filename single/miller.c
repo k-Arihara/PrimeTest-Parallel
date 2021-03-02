@@ -1,4 +1,4 @@
-#include "prime.h"
+#include "single.h"
 
 bool gmp2mpfr(mpz_t op_in, mpfr_t op_out)
 {

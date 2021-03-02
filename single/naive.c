@@ -1,4 +1,4 @@
-#include "prime.h"
+#include "single.h"
 
 /* Trial division */
 bool NaivePrimeTest(mpz_t testNum)
